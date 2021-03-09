@@ -63,13 +63,13 @@ contract ClipperMom {
     }
 
     function setOwner(address owner_) external onlyOwner {
-        owner = owner_;
         emit SetOwner(owner, owner_);
+        owner = owner_;
     }
 
     function setAuthority(address authority_) external onlyOwner {
-        authority = authority_;
         emit SetAuthority(authority, authority_);
+        authority = authority_;
     }
 
     function setBreaker(address clip, uint256 level) external auth {

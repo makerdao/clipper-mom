@@ -36,12 +36,12 @@ contract ClipperMom {
     event SetBreaker(address indexed clip, uint256 level);
 
     modifier onlyOwner {
-        require(msg.sender == owner, "clipper-mom/only-owner");
+        require(msg.sender == owner, "ClipperMom/only-owner");
         _;
     }
 
     modifier auth {
-        require(isAuthorized(msg.sender, msg.sig), "clipper-mom/not-authorized");
+        require(isAuthorized(msg.sender, msg.sig), "ClipperMom/not-authorized");
         _;
     }
 
@@ -63,13 +63,13 @@ contract ClipperMom {
     }
 
     function setOwner(address owner_) external onlyOwner {
-        emit SetOwner(owner, owner_);
         owner = owner_;
+        emit SetOwner(owner, owner_);
     }
 
     function setAuthority(address authority_) external onlyOwner {
-        emit SetAuthority(authority, authority_);
         authority = authority_;
+        emit SetAuthority(authority, authority_);
     }
 
     function setBreaker(address clip, uint256 level) external auth {

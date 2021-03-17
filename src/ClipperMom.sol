@@ -146,12 +146,12 @@ contract ClipperMom {
         tolerance[ilk_] = tolerance_;
     }
 
-    function emergencyBreak(address clip_, bytes32 ilk_) external {
-        require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
+    function emergencyBreak(address clip_) external {
         ClipLike clipper = ClipLike(clip_);
-        require(clipper.ilk() == ilk_, "ClipperMom/clipper-ilk-mismatch");
+        bytes32 ilk_ = clipper.ilk();
+        require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
+      
         (uint256 price, uint256 priceNxt) = getPrices(ilk_);
-        require(price > priceNxt);
 
         // lastPrice * tolerance < lastPrice - current price
         require(rmul(price, tolerance[ilk_]) <  sub(price, priceNxt), "ClipperMom/price-within-bounds");
@@ -163,10 +163,10 @@ contract ClipperMom {
         (PipLike pip, ) = spotter.ilks(ilk_);
         (bytes32 val, bool has) = pip.peek();
         require(has, "ClipperMom/invalid-price");
-        price = rdiv(mul(uint256(val), BLN), spotter.par());
+        price = mul(uint256(val), BLN);
         (bytes32 valNxt, bool hasNxt) = pip.peep();
         require(hasNxt, "ClipperMom/invalid-price");
-        priceNxt = rdiv(mul(uint256(valNxt), BLN), spotter.par());
+        priceNxt = mul(uint256(valNxt), BLN);
     }
   
 }

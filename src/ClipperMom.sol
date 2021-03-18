@@ -39,12 +39,20 @@ interface SpotterLike {
     function ilks(bytes32) external returns (PipLike, uint256);
 }
 
+struct Tolerance {
+    uint256 drop; // % allowed drop / 100 measured (ray val between 0 and 1)
+    uint256 droppedAt; // latest acceptable price prior to break being pulled (ray value).
+    bool isSet;
+    bool isPulled;
+}
+
+
 contract ClipperMom {
     address public owner;
     address public authority;
     SpotterLike public spotter;
-    mapping (bytes32 => uint256) public tolerance; // ilk -> ray
-
+    mapping (bytes32 => Tolerance) public tolerance;
+    
     event SetOwner(address indexed oldOwner, address indexed newOwner);
     event SetAuthority(address indexed oldAuthority, address indexed newAuthority);
     event SetBreaker(address indexed clip, uint256 level);
@@ -61,7 +69,7 @@ contract ClipperMom {
 
     constructor(address spotter_) public {
         owner = msg.sender;
-        spotter = SpotterLike(spotter);
+        spotter = SpotterLike(spotter_);
         emit SetOwner(address(0), msg.sender);
     }
 
@@ -140,23 +148,87 @@ contract ClipperMom {
           - Edge cases: 
             - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk_
     
+
+        States of the emergency break system:
+            - Pulled (yes/no)
+            - IsSet (yes/no)
+            - drop (number)
+            - priceWhenDropped (number)
+        Workflow: 
+            1. SetPriceDropTolerance[ilk]
+                - Allowed in any state
+            2. Pull E-Break
+                - Allowed if pulled is False & IsSet is true
+                - Succeeds if:
+                    - currPrice * drop < currPrice - nextPrice  (and currPrice < nextPrice)
+                - After: priceWhenDropped = currPrice; Pulled = true
+            3. Release E-Break
+                - Allowed if pulled is True and IsSet is True
+                - Succeeds if:
+                    - (currPrice >= priceWhenDropped OR
+                    - priceWhenDropped * drop > priceWhenDropped - currPrice) AND
+                    - currPrice * drop > currPrice - nextPrice
+                - After: priceWhenDropped = 0; Pulled = false;
+            4. Unset E-Break
+                - Allowed if pulled is False and IsSet is true
+                - After: IsSet is true
+
+        Points of discussion:
+            - Should break unset be unallowable when someone could pull the break? Maybe this is okay since unsetBreak is auth'd
+            - Can the stopped level of clipper be changed by anything other than clipperMom or is there risk of "isPulled" being
+              out of sync with the clipper such that a clipper is re-enabled but we can't reset the emergency break.
+            - Should we allow the tolerable drop % to be configured on an ilk when it's emergency break is pulled?
     */
     function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance_) external auth {
         require(tolerance_ <= 1 * RAY && tolerance_ > 0, "ClipperMom/tolerance-out-of-bounds");
-        tolerance[ilk_] = tolerance_;
+        tolerance[ilk_].drop = tolerance_;
+        tolerance[ilk_].isSet = true;
     }
 
-    function emergencyBreak(address clip_) external {
+    // Succeeds if drop tolerance is set and the break for the ilk is not currently "pulled"/active
+    // Fails if (price > priceNxt && diff(price, priceNxt) > tolerableChange) OR price < priceNxt 
+    function pullBreak(address clip_) external {
         ClipLike clipper = ClipLike(clip_);
         bytes32 ilk_ = clipper.ilk();
-        require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
+        require(tolerance[ilk_].isSet && !tolerance[ilk_].isPulled, "ClipperMom/invalid-ilk-break");
       
         (uint256 price, uint256 priceNxt) = getPrices(ilk_);
 
-        // lastPrice * tolerance < lastPrice - current price
-        require(rmul(price, tolerance[ilk_]) <  sub(price, priceNxt), "ClipperMom/price-within-bounds");
-        clipper.file("stopped", 1);
-        emit SetBreaker(clip_, 1);
+        require(rmul(price, tolerance[ilk_].drop) <  sub(price, priceNxt), "ClipperMom/price-within-bounds");
+        tolerance[ilk_].droppedAt = price;
+        tolerance[ilk_].isPulled = true;
+        clipper.file("stopped", 2);
+        emit SetBreaker(clip_, 2);
+    }
+
+
+
+    // Succeeds if:
+    //   (price > droppedAt & (price < nxtPrice OR (price >= nxtPrice && change from price to nxtPrice < tolerableChange)) 
+    //  OR
+    //    price < droppedAt & change from droppedAt to Price < tolerableChange
+    function releaseBreak(address clip_) external {
+        ClipLike clipper = ClipLike(clip_);
+        bytes32 ilk_ = clipper.ilk();
+        Tolerance memory ilkTolerance = tolerance[ilk_];
+        require(ilkTolerance.isPulled && ilkTolerance.isSet, "ClipperMom/invalid-ilk-release");
+        
+        (uint256 price, uint256 nxtPrice) = getPrices(ilk_);
+        if (price < ilkTolerance.droppedAt) {
+            require(rmul(ilkTolerance.droppedAt, ilkTolerance.drop) >  sub(ilkTolerance.droppedAt, price), "ClipperMom/price-within-bounds");
+        }
+        if (price > nxtPrice) {
+            require(rmul(price, ilkTolerance.drop) <  sub(price, nxtPrice), "ClipperMom/price-within-bounds");
+        }
+
+        tolerance[ilk_].isPulled = false;
+        tolerance[ilk_].droppedAt = 0;
+        clipper.file("stopped", 0);
+    }
+
+    function unsetBreak(bytes32 ilk_) external auth {
+        require(tolerance[ilk_].isSet == true);
+        tolerance[ilk_].isSet = false;
     }
   
     function getPrices(bytes32 ilk_) internal returns (uint256 price, uint256 priceNxt) {

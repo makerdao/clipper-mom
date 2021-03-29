@@ -90,8 +90,8 @@ contract ClipperMom {
         }
     }
 
-    function getPrices(bytes32 ilk_) internal view returns (uint256 cur, uint256 nxt) {
-        (PipLike pip, ) = spotter.ilks(ilk_);
+    function getPrices(bytes32 ilk) internal view returns (uint256 cur, uint256 nxt) {
+        (PipLike pip, ) = spotter.ilks(ilk);
         bool has;
         (cur, has) = pip.peek();
         require(has, "ClipperMom/invalid-cur-price");
@@ -110,19 +110,19 @@ contract ClipperMom {
         authority = authority_;
     }
 
-    function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance_) external onlyOwner {
-        require(tolerance_ <= 1 * RAY && tolerance_ > 0, "ClipperMom/tolerance-out-of-bounds");
-        tolerance[ilk_] = tolerance_;
+    function setPriceDropTolerance(bytes32 ilk, uint256 value) external onlyOwner {
+        require(value <= 1 * RAY && value > 0, "ClipperMom/tolerance-out-of-bounds");
+        tolerance[ilk] = value;
     }
 
     // Governance action without delay
-    function setBreaker(address clip_, uint256 level) external auth {
+    function setBreaker(address clip, uint256 level) external auth {
         require(level <= 3, "ClipperMom/wrong-level");
-        ClipLike(clip_).file("stopped", level);
+        ClipLike(clip).file("stopped", level);
         // If governance changes the status of the breaker we want to lock for one hour
         // the permissionless function so the osm can pull new nxt price to compare
-        locked[ClipLike(clip_).ilk()] = block.timestamp + 1 hours;
-        emit SetBreaker(clip_, level);
+        locked[ClipLike(clip).ilk()] = block.timestamp + 1 hours;
+        emit SetBreaker(clip, level);
     }
 
     /**
@@ -142,19 +142,19 @@ contract ClipperMom {
           - If the drop is unacceptable, it stops auctions for the current ilk and allows a later retry
         
           - Edge cases: 
-            - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk_
+            - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk
     
     */
-    function tripBreaker(address clip_) external {
-        ClipLike clipper = ClipLike(clip_);
-        bytes32 ilk_ = clipper.ilk();
-        require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
-        require(block.timestamp > locked[ilk_], "ClipperMom/temporary-locked");
+    function tripBreaker(address clip) external {
+        ClipLike clipper = ClipLike(clip);
+        bytes32 ilk = clipper.ilk();
+        require(tolerance[ilk] > 0, "ClipperMom/invalid-ilk-break");
+        require(block.timestamp > locked[ilk], "ClipperMom/temporary-locked");
       
-        (uint256 cur, uint256 nxt) = getPrices(ilk_);
+        (uint256 cur, uint256 nxt) = getPrices(ilk);
 
-        require(nxt < rmul(cur, sub(RAY, tolerance[ilk_])), "ClipperMom/price-within-bounds");
+        require(nxt < rmul(cur, sub(RAY, tolerance[ilk])), "ClipperMom/price-within-bounds");
         clipper.file("stopped", 1);
-        emit SetBreaker(clip_, 1);
+        emit SetBreaker(clip, 1);
     }
 }

@@ -151,7 +151,7 @@ contract ClipperMom {
         the % tolerance.
             
 
-        emergencyBreak takes the address of the ilk's clipper as well as the ilk identifier.
+        tripBreaker takes the address of the ilk's clipper as well as the ilk identifier.
         it then gets the current and next price and checks:
           - the next price < current price
           - the currentPrice * (tolerance % * 100) is less than the currentPrice - next price
@@ -162,7 +162,7 @@ contract ClipperMom {
             - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk_
     
     */
-    function emergencyBreak(address clip_) external {
+    function tripBreaker(address clip_) external {
         ClipLike clipper = ClipLike(clip_);
         bytes32 ilk_ = clipper.ilk();
         require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");

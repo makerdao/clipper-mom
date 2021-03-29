@@ -30,8 +30,8 @@ contract Anyone {
         mom = mom_;
     }
 
-    function emergencyBreak(address clip_) external {
-        mom.emergencyBreak(clip_);
+    function tripBreaker(address clip_) external {
+        mom.tripBreaker(clip_);
     }
 }
 
@@ -242,7 +242,7 @@ contract ClipperMomTest is DSTest {
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 1);
     }
 
@@ -251,7 +251,7 @@ contract ClipperMomTest is DSTest {
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(60 * WAD, 1);
 
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
     }
 
     function testEmergencyBreakLockedAndWait() public {
@@ -259,12 +259,12 @@ contract ClipperMomTest is DSTest {
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 1);
         mom.setBreaker(address(clip), 0);
         assertEq(clip.stopped(), 0);
         hevm.warp(block.timestamp + 1 hours + 1);
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 1);
     }
 
@@ -273,8 +273,8 @@ contract ClipperMomTest is DSTest {
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
         mom.setBreaker(address(clip), 0);
-        anyone.emergencyBreak(address(clip));
+        anyone.tripBreaker(address(clip));
     }
 }

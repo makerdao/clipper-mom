@@ -196,6 +196,8 @@ contract ClipperMomTest is DSTest {
         assertEq(clip.stopped(), 1);
         caller.setBreaker(address(clip), 2);
         assertEq(clip.stopped(), 2);
+        caller.setBreaker(address(clip), 3);
+        assertEq(clip.stopped(), 3);
         caller.setBreaker(address(clip), 0);
         assertEq(clip.stopped(), 0);
     }
@@ -206,6 +208,8 @@ contract ClipperMomTest is DSTest {
         assertEq(clip.stopped(), 1);
         mom.setBreaker(address(clip), 2);
         assertEq(clip.stopped(), 2);
+        mom.setBreaker(address(clip), 3);
+        assertEq(clip.stopped(), 3);
         mom.setBreaker(address(clip), 0);
         assertEq(clip.stopped(), 0);
     }
@@ -223,7 +227,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailSetBreakerWrongLevel() public {
-        caller.setBreaker(address(clip), 3);
+        caller.setBreaker(address(clip), 4);
     }
 
     function testFailSetToleranceViaAuth() public {

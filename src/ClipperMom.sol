@@ -117,7 +117,7 @@ contract ClipperMom {
 
     // Governance action without delay
     function setBreaker(address clip_, uint256 level) external auth {
-        require(level <= 2, "ClipperMom/wrong-level");
+        require(level <= 3, "ClipperMom/wrong-level");
         ClipLike(clip_).file("stopped", level);
         // If governance changes the status of the breaker we want to lock for one hour
         // the permissionless function so the osm can pull new nxt price to compare

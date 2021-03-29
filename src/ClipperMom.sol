@@ -22,7 +22,6 @@ pragma solidity >=0.6.12;
 interface ClipLike {
     function file(bytes32, uint256) external;
     function ilk() external view returns (bytes32);
-   
 }
 
 interface AuthorityLike {
@@ -30,8 +29,8 @@ interface AuthorityLike {
 }
 
 interface PipLike {
-    function peek() external view returns (bytes32, bool);
-    function peep() external view returns (bytes32, bool);
+    function peek() external view returns (uint256, bool);
+    function peep() external view returns (uint256, bool);
 }
 
 interface SpotterLike {
@@ -65,33 +64,19 @@ contract ClipperMom {
         emit SetOwner(address(0), msg.sender);
     }
 
- // --- Math ---
-    uint256 constant BLN = 10 **  9;
+    // --- Math ---
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
 
-    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = x <= y ? x : y;
-    }
-    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
     function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require((z = x - y) <= x);
     }
     function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require(y == 0 || (z = x * y) / y == x);
     }
-    function wmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = mul(x, y) / WAD;
-    }
     function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
         z = mul(x, y) / RAY;
     }
-    function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = mul(x, RAY) / y;
-    }
-
 
     function isAuthorized(address src, bytes4 sig) internal view returns (bool) {
         if (src == address(this)) {
@@ -105,14 +90,13 @@ contract ClipperMom {
         }
     }
 
-    function getPrices(bytes32 ilk_) internal view returns (uint256 price, uint256 priceNxt) {
+    function getPrices(bytes32 ilk_) internal view returns (uint256 cur, uint256 nxt) {
         (PipLike pip, ) = spotter.ilks(ilk_);
-        (bytes32 val, bool has) = pip.peek();
-        require(has, "ClipperMom/invalid-price");
-        price = mul(uint256(val), BLN);
-        (bytes32 valNxt, bool hasNxt) = pip.peep();
-        require(hasNxt, "ClipperMom/invalid-price");
-        priceNxt = mul(uint256(valNxt), BLN);
+        bool has;
+        (cur, has) = pip.peek();
+        require(has, "ClipperMom/invalid-cur-price");
+        (nxt, has) = pip.peep();
+        require(has, "ClipperMom/invalid-nxt-price");
     }
 
     // Governance actions with delay
@@ -130,14 +114,13 @@ contract ClipperMom {
         require(tolerance_ <= 1 * RAY && tolerance_ > 0, "ClipperMom/tolerance-out-of-bounds");
         tolerance[ilk_] = tolerance_;
     }
-    //
 
     // Governance action without delay
     function setBreaker(address clip_, uint256 level) external auth {
         require(level <= 2, "ClipperMom/wrong-level");
         ClipLike(clip_).file("stopped", level);
-        // If governance changes the status of the breaker we want to give one hour
-        // to pull new prices before anyone can run the permissionless breaker
+        // If governance changes the status of the breaker we want to lock for one hour
+        // the permissionless function so the osm can pull new nxt price to compare
         locked[ClipLike(clip_).ilk()] = block.timestamp + 1 hours;
         emit SetBreaker(clip_, level);
     }
@@ -168,10 +151,9 @@ contract ClipperMom {
         require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
         require(block.timestamp > locked[ilk_], "ClipperMom/temporary-locked");
       
-        (uint256 price, uint256 priceNxt) = getPrices(ilk_);
+        (uint256 cur, uint256 nxt) = getPrices(ilk_);
 
-        // lastPrice * tolerance < lastPrice - current price
-        require(priceNxt < rmul(price, sub(RAY, tolerance[ilk_])), "ClipperMom/price-within-bounds");
+        require(nxt < rmul(cur, sub(RAY, tolerance[ilk_])), "ClipperMom/price-within-bounds");
         clipper.file("stopped", 1);
         emit SetBreaker(clip_, 1);
     }

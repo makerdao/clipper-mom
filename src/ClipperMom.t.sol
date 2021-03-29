@@ -82,9 +82,9 @@ contract MockClipper {
         _;
     }
     bytes32 public ilk;
-    constructor() public {
+    constructor(bytes32 _ilk) public {
         wards[msg.sender] = 1;
-        ilk = "ETH";
+        ilk = _ilk;
     }
     function file(bytes32 what, uint256 data) external auth {
         if (what == "stopped") stopped = data;
@@ -162,7 +162,7 @@ contract ClipperMomTest is DSTest {
         caller = new MomCaller(mom);
         authority = new SimpleAuthority(address(caller));
         mom.setAuthority(address(authority));
-        clip = new MockClipper();
+        clip = new MockClipper("ETH");
         clip.rely(address(mom));
         anyone = new Anyone(mom);
         hevm.warp(1000);
@@ -248,6 +248,21 @@ contract ClipperMomTest is DSTest {
 
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
+    }
+
+    function testEmergencyBreakMulipleClipper() public {
+        assertEq(clip.stopped(), 0);
+        mom.setPriceDropTolerance("ETH", 40 * RAY / 100); // 40% drop
+        pip.setCurPrice(100 * WAD, 1);
+        pip.setNxtPrice(59 * WAD, 1);
+
+        MockClipper clipalt = new MockClipper("ETH");
+        clipalt.rely(address(mom));
+
+        anyone.tripBreaker(address(clipalt));
+        assertEq(clipalt.stopped(), 2);      // Attempt to stop with a false or secondary clipper
+        anyone.tripBreaker(address(clip));
+        assertEq(clip.stopped(), 2);         // Should not affect ability to stop the correct one
     }
 
     function testFailEmergencyBreakWithinBounds() public {

@@ -247,7 +247,7 @@ contract ClipperMomTest is DSTest {
         pip.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
-        assertEq(clip.stopped(), 1);
+        assertEq(clip.stopped(), 2);
     }
 
     function testFailEmergencyBreakWithinBounds() public {
@@ -264,12 +264,12 @@ contract ClipperMomTest is DSTest {
         pip.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
-        assertEq(clip.stopped(), 1);
+        assertEq(clip.stopped(), 2);
         mom.setBreaker(address(clip), 0);
         assertEq(clip.stopped(), 0);
         hevm.warp(block.timestamp + 1 hours + 1);
         anyone.tripBreaker(address(clip));
-        assertEq(clip.stopped(), 1);
+        assertEq(clip.stopped(), 2);
     }
 
     function testFailEmergencyBreakLocked() public {

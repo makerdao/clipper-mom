@@ -154,7 +154,7 @@ contract ClipperMom {
         (uint256 cur, uint256 nxt) = getPrices(ilk);
 
         require(nxt < rmul(cur, sub(RAY, tolerance[ilk])), "ClipperMom/price-within-bounds");
-        clipper.file("stopped", 1);
-        emit SetBreaker(clip, 1);
+        clipper.file("stopped", 2);
+        emit SetBreaker(clip, 2);
     }
 }

@@ -30,19 +30,19 @@ interface AuthorityLike {
 }
 
 interface PipLike {
-    function peek() external returns (bytes32, bool);
-    function peep() external returns (bytes32, bool);
+    function peek() external view returns (bytes32, bool);
+    function peep() external view returns (bytes32, bool);
 }
 
 interface SpotterLike {
-    function par() external returns (uint256);
-    function ilks(bytes32) external returns (PipLike, uint256);
+    function ilks(bytes32) external view returns (PipLike, uint256);
 }
 
 contract ClipperMom {
     address public owner;
     address public authority;
     SpotterLike public spotter;
+    uint256 public locked;
     mapping (bytes32 => uint256) public tolerance; // ilk -> ray
 
     event SetOwner(address indexed oldOwner, address indexed newOwner);
@@ -61,7 +61,7 @@ contract ClipperMom {
 
     constructor(address spotter_) public {
         owner = msg.sender;
-        spotter = SpotterLike(spotter);
+        spotter = SpotterLike(spotter_);
         emit SetOwner(address(0), msg.sender);
     }
 
@@ -105,6 +105,17 @@ contract ClipperMom {
         }
     }
 
+    function getPrices(bytes32 ilk_) internal view returns (uint256 price, uint256 priceNxt) {
+        (PipLike pip, ) = spotter.ilks(ilk_);
+        (bytes32 val, bool has) = pip.peek();
+        require(has, "ClipperMom/invalid-price");
+        price = mul(uint256(val), BLN);
+        (bytes32 valNxt, bool hasNxt) = pip.peep();
+        require(hasNxt, "ClipperMom/invalid-price");
+        priceNxt = mul(uint256(valNxt), BLN);
+    }
+
+    // Governance actions with delay
     function setOwner(address owner_) external onlyOwner {
         emit SetOwner(owner, owner_);
         owner = owner_;
@@ -115,9 +126,19 @@ contract ClipperMom {
         authority = authority_;
     }
 
+    function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance_) external onlyOwner {
+        require(tolerance_ <= 1 * RAY && tolerance_ > 0, "ClipperMom/tolerance-out-of-bounds");
+        tolerance[ilk_] = tolerance_;
+    }
+    //
+
+    // Governance action without delay
     function setBreaker(address clip_, uint256 level) external auth {
         require(level <= 2, "ClipperMom/wrong-level");
         ClipLike(clip_).file("stopped", level);
+        // If governance changes the status of the breaker we want to give one hour
+        // to pull new prices before anyone can run the permissionless breaker
+        locked = block.timestamp + 1 hours;
         emit SetBreaker(clip_, level);
     }
 
@@ -141,12 +162,9 @@ contract ClipperMom {
             - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk_
     
     */
-    function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance_) external auth {
-        require(tolerance_ <= 1 * RAY && tolerance_ > 0, "ClipperMom/tolerance-out-of-bounds");
-        tolerance[ilk_] = tolerance_;
-    }
-
+    event log(string, uint256);
     function emergencyBreak(address clip_) external {
+        require(block.timestamp > locked, "ClipperMom/temporary-locked");
         ClipLike clipper = ClipLike(clip_);
         bytes32 ilk_ = clipper.ilk();
         require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
@@ -154,19 +172,8 @@ contract ClipperMom {
         (uint256 price, uint256 priceNxt) = getPrices(ilk_);
 
         // lastPrice * tolerance < lastPrice - current price
-        require(rmul(price, tolerance[ilk_]) <  sub(price, priceNxt), "ClipperMom/price-within-bounds");
+        require(priceNxt < rmul(price, sub(RAY, tolerance[ilk_])), "ClipperMom/price-within-bounds");
         clipper.file("stopped", 1);
         emit SetBreaker(clip_, 1);
     }
-  
-    function getPrices(bytes32 ilk_) internal returns (uint256 price, uint256 priceNxt) {
-        (PipLike pip, ) = spotter.ilks(ilk_);
-        (bytes32 val, bool has) = pip.peek();
-        require(has, "ClipperMom/invalid-price");
-        price = mul(uint256(val), BLN);
-        (bytes32 valNxt, bool hasNxt) = pip.peep();
-        require(hasNxt, "ClipperMom/invalid-price");
-        priceNxt = mul(uint256(valNxt), BLN);
-    }
-  
 }

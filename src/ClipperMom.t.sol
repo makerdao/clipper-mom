@@ -23,6 +23,18 @@ import "ds-test/test.sol";
 
 import "./ClipperMom.sol";
 
+contract Anyone {
+    ClipperMom mom;
+
+    constructor(ClipperMom mom_) public {
+        mom = mom_;
+    }
+
+    function emergencyBreak(address clip_) external {
+        mom.emergencyBreak(clip_);
+    }
+}
+
 contract MomCaller {
     ClipperMom mom;
 
@@ -30,16 +42,20 @@ contract MomCaller {
         mom = mom_;
     }
 
-    function setOwner(address newOwner) public {
+    function setOwner(address newOwner) external {
         mom.setOwner(newOwner);
     }
 
-    function setAuthority(address newAuthority) public {
+    function setAuthority(address newAuthority) external {
         mom.setAuthority(newAuthority);
     }
 
-    function setBreaker(address clip, uint256 level) public {
-        mom.setBreaker(clip, level);
+    function setBreaker(address clip_, uint256 level) external {
+        mom.setBreaker(clip_, level);
+    }
+
+    function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance) external {
+        mom.setPriceDropTolerance(ilk_, tolerance);
     }
 }
 
@@ -65,8 +81,10 @@ contract MockClipper {
         require(wards[msg.sender] == 1, "MockClipper/not-authorized");
         _;
     }
+    bytes32 public ilk;
     constructor() public {
         wards[msg.sender] = 1;
+        ilk = "ETH";
     }
     function file(bytes32 what, uint256 data) external auth {
         if (what == "stopped") stopped = data;
@@ -74,19 +92,80 @@ contract MockClipper {
     }
 }
 
+contract MockSpotter {
+    address public pip;
+
+    constructor(address pip_) public {
+        pip = pip_;
+    }
+
+    function ilks(bytes32) external view returns (address pip_, uint256) {
+        pip_ = pip;
+    }
+}
+
+contract MockPip {
+    struct Feed {
+        uint128 val;
+        uint128 has;
+    }
+
+    Feed cur;
+    Feed nxt;
+
+    function setCurPrice(uint256 val, uint256 has) external {
+        cur.val = uint128(val);
+        cur.has = uint128(has);
+    }
+
+    function setNxtPrice(uint256 val, uint256 has) external {
+        nxt.val = uint128(val);
+        nxt.has = uint128(has);
+    }
+
+    function peek() external view returns (bytes32,bool) {
+        return (bytes32(uint256(cur.val)), cur.has == 1);
+    }
+
+    function peep() external view returns (bytes32,bool) {
+        return (bytes32(uint256(nxt.val)), nxt.has == 1);
+    }
+}
+
+interface Hevm {
+    function warp(uint256) external;
+}
+
 contract ClipperMomTest is DSTest {
+    MockPip pip;
+    MockSpotter spotter;
     ClipperMom mom;
     MomCaller caller;
     SimpleAuthority authority;
     MockClipper clip;
+    Anyone anyone;
+
+    Hevm hevm;
+
+    uint256 constant WAD = 10 ** 18;
+    uint256 constant RAY = 10 ** 27;
+
+    // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
+    bytes20 constant CHEAT_CODE =
+        bytes20(uint160(uint256(keccak256('hevm cheat code'))));
 
     function setUp() public {
-        mom = new ClipperMom();
+        hevm = Hevm(address(CHEAT_CODE));
+        pip = new MockPip();
+        spotter = new MockSpotter(address(pip));
+        mom = new ClipperMom(address(spotter));
         caller = new MomCaller(mom);
         authority = new SimpleAuthority(address(caller));
         mom.setAuthority(address(authority));
         clip = new MockClipper();
         clip.rely(address(mom));
+        anyone = new Anyone(mom);
+        hevm.warp(1000);
     }
 
     function testSetOwner() public {
@@ -145,5 +224,57 @@ contract ClipperMomTest is DSTest {
 
     function testFailSetBreakerWrongLevel() public {
         caller.setBreaker(address(clip), 3);
+    }
+
+    function testFailSetToleranceViaAuth() public {
+        caller.setPriceDropTolerance("ETH", 100);
+    }
+
+    function testSetToleranceViaOwner() public {
+        assertEq(mom.tolerance("ETH"), 0);
+        mom.setPriceDropTolerance("ETH", 100);
+        assertEq(mom.tolerance("ETH"), 100);
+    }
+
+    function testEmergencyBreak() public {
+        assertEq(clip.stopped(), 0);
+        mom.setPriceDropTolerance("ETH", 40 * RAY / 100); // 40% drop
+        pip.setCurPrice(100 * WAD, 1);
+        pip.setNxtPrice(59 * WAD, 1);
+
+        anyone.emergencyBreak(address(clip));
+        assertEq(clip.stopped(), 1);
+    }
+
+    function testFailEmergencyBreakWithinBounds() public {
+        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        pip.setCurPrice(100 * WAD, 1);
+        pip.setNxtPrice(60 * WAD, 1);
+
+        anyone.emergencyBreak(address(clip));
+    }
+
+    function testEmergencyBreakLockedAndWait() public {
+        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        pip.setCurPrice(100 * WAD, 1);
+        pip.setNxtPrice(59 * WAD, 1);
+
+        anyone.emergencyBreak(address(clip));
+        assertEq(clip.stopped(), 1);
+        mom.setBreaker(address(clip), 0);
+        assertEq(clip.stopped(), 0);
+        hevm.warp(block.timestamp + 1 hours + 1);
+        anyone.emergencyBreak(address(clip));
+        assertEq(clip.stopped(), 1);
+    }
+
+    function testFailEmergencyBreakLocked() public {
+        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        pip.setCurPrice(100 * WAD, 1);
+        pip.setNxtPrice(59 * WAD, 1);
+
+        anyone.emergencyBreak(address(clip));
+        mom.setBreaker(address(clip), 0);
+        anyone.emergencyBreak(address(clip));
     }
 }

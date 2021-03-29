@@ -42,7 +42,7 @@ contract ClipperMom {
     address public owner;
     address public authority;
     SpotterLike public spotter;
-    uint256 public locked;
+    mapping (bytes32 => uint256) public locked;
     mapping (bytes32 => uint256) public tolerance; // ilk -> ray
 
     event SetOwner(address indexed oldOwner, address indexed newOwner);
@@ -138,7 +138,7 @@ contract ClipperMom {
         ClipLike(clip_).file("stopped", level);
         // If governance changes the status of the breaker we want to give one hour
         // to pull new prices before anyone can run the permissionless breaker
-        locked = block.timestamp + 1 hours;
+        locked[ClipLike(clip_).ilk()] = block.timestamp + 1 hours;
         emit SetBreaker(clip_, level);
     }
 
@@ -162,12 +162,11 @@ contract ClipperMom {
             - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk_
     
     */
-    event log(string, uint256);
     function emergencyBreak(address clip_) external {
-        require(block.timestamp > locked, "ClipperMom/temporary-locked");
         ClipLike clipper = ClipLike(clip_);
         bytes32 ilk_ = clipper.ilk();
         require(tolerance[ilk_] > 0, "ClipperMom/invalid-ilk-break");
+        require(block.timestamp > locked[ilk_], "ClipperMom/temporary-locked");
       
         (uint256 price, uint256 priceNxt) = getPrices(ilk_);
 

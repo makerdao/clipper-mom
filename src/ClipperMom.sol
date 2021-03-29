@@ -40,8 +40,8 @@ interface SpotterLike {
 contract ClipperMom {
     address public owner;
     address public authority;
-    SpotterLike public spotter;
-    mapping (bytes32 => uint256) public locked;
+    SpotterLike public immutable spotter;
+    mapping (bytes32 => uint256) public locked; // timestamp when becomes unlocked (per ilk)
     mapping (bytes32 => uint256) public tolerance; // ilk -> ray
 
     event SetOwner(address indexed oldOwner, address indexed newOwner);

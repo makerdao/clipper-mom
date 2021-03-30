@@ -54,8 +54,8 @@ contract MomCaller {
         mom.setBreaker(clip_, level);
     }
 
-    function setPriceTolerance(bytes32 ilk_, uint256 tolerance) external {
-        mom.setPriceTolerance(ilk_, tolerance);
+    function setPriceTolerance(address clip, uint256 value) external {
+        mom.setPriceTolerance(address(clip), value);
     }
 }
 
@@ -231,18 +231,18 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailSetToleranceViaAuth() public {
-        caller.setPriceTolerance("ETH", 100);
+        caller.setPriceTolerance(address(clip), 100);
     }
 
     function testSetToleranceViaOwner() public {
-        assertEq(mom.tolerance("ETH"), 0);
-        mom.setPriceTolerance("ETH", 100);
-        assertEq(mom.tolerance("ETH"), 100);
+        assertEq(mom.tolerance(address(clip)), 0);
+        mom.setPriceTolerance(address(clip), 100);
+        assertEq(mom.tolerance(address(clip)), 100);
     }
 
     function testTripBreaker() public {
         assertEq(clip.stopped(), 0);
-        mom.setPriceTolerance("ETH", 60 * RAY / 100); // max 40% drop
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -253,7 +253,7 @@ contract ClipperMomTest is DSTest {
     function testTripBreaker2() public {
         clip.file("stopped", 1);
         assertEq(clip.stopped(), 1);
-        mom.setPriceTolerance("ETH", 60 * RAY / 100); // max 40% drop
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -263,7 +263,7 @@ contract ClipperMomTest is DSTest {
 
     function testFailTripBreakerAlreadyStopped() public {
         clip.file("stopped", 2);
-        mom.setPriceTolerance("ETH", 60 * RAY / 100); // max 40% drop
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -272,30 +272,15 @@ contract ClipperMomTest is DSTest {
 
     function testFailTripBreakerAlreadyStopped2() public {
         clip.file("stopped", 3);
-        mom.setPriceTolerance("ETH", 60 * RAY / 100); // max 40% drop
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
-    }
-
-    function testTripBreakerMulipleClipper() public {
-        assertEq(clip.stopped(), 0);
-        mom.setPriceTolerance("ETH", 60 * RAY / 100); // 40% drop
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
-
-        MockClipper clipalt = new MockClipper("ETH");
-        clipalt.rely(address(mom));
-
-        anyone.tripBreaker(address(clipalt));
-        assertEq(clipalt.stopped(), 2);      // Attempt to stop with a false or secondary clipper
-        anyone.tripBreaker(address(clip));
-        assertEq(clip.stopped(), 2);         // Should not affect ability to stop the correct one
     }
 
     function testFailTripBreakerWithinBounds() public {
-        mom.setPriceTolerance("ETH", 60 * RAY / 100);
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(60 * WAD, 1);
 
@@ -303,7 +288,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testTripBreakerLockedAndWait() public {
-        mom.setPriceTolerance("ETH", 60 * RAY / 100);
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -317,7 +302,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailTripBreakerLocked() public {
-        mom.setPriceTolerance("ETH", 60 * RAY / 100);
+        mom.setPriceTolerance(address(clip), 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 

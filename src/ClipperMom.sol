@@ -41,8 +41,8 @@ interface SpotterLike {
 contract ClipperMom {
     address public owner;
     address public authority;
-    mapping (bytes32 => uint256) public locked; // timestamp when becomes unlocked (per ilk)
-    mapping (bytes32 => uint256) public tolerance; // ilk -> ray
+    mapping (address => uint256) public locked;    // timestamp when becomes unlocked (per clipper)
+    mapping (address => uint256) public tolerance; // clipper -> ray
 
     SpotterLike public immutable spotter;
 
@@ -92,8 +92,8 @@ contract ClipperMom {
         }
     }
 
-    function getPrices(bytes32 ilk) internal view returns (uint256 cur, uint256 nxt) {
-        (PipLike pip, ) = spotter.ilks(ilk);
+    function getPrices(address clip) internal view returns (uint256 cur, uint256 nxt) {
+        (PipLike pip, ) = spotter.ilks(ClipLike(clip).ilk());
         bool has;
         (cur, has) = pip.peek();
         require(has, "ClipperMom/invalid-cur-price");
@@ -112,9 +112,9 @@ contract ClipperMom {
         authority = authority_;
     }
 
-    function setPriceTolerance(bytes32 ilk, uint256 value) external onlyOwner {
+    function setPriceTolerance(address clip, uint256 value) external onlyOwner {
         require(value <= 1 * RAY, "ClipperMom/tolerance-out-of-bounds");
-        tolerance[ilk] = value;
+        tolerance[clip] = value;
     }
 
     // Governance action without delay
@@ -123,7 +123,7 @@ contract ClipperMom {
         ClipLike(clip).file("stopped", level);
         // If governance changes the status of the breaker we want to lock for one hour
         // the permissionless function so the osm can pull new nxt price to compare
-        locked[ClipLike(clip).ilk()] = block.timestamp + 1 hours;
+        locked[clip] = block.timestamp + 1 hours;
         emit SetBreaker(clip, level);
     }
 
@@ -140,16 +140,14 @@ contract ClipperMom {
         must reset the breaker manually.
     */
     function tripBreaker(address clip) external {
-        ClipLike clipper = ClipLike(clip);
-        require(clipper.stopped() < 2, "ClipperMom/clipper-already-stopped");
-        bytes32 ilk = clipper.ilk();
-        require(tolerance[ilk] > 0, "ClipperMom/invalid-ilk-break");
-        require(block.timestamp > locked[ilk], "ClipperMom/temporary-locked");
+        require(ClipLike(clip).stopped() < 2, "ClipperMom/clipper-already-stopped");
+        require(tolerance[clip] > 0, "ClipperMom/invalid-clipper-break");
+        require(block.timestamp > locked[clip], "ClipperMom/temporary-locked");
       
-        (uint256 cur, uint256 nxt) = getPrices(ilk);
+        (uint256 cur, uint256 nxt) = getPrices(clip);
 
-        require(nxt < rmul(cur, tolerance[ilk]), "ClipperMom/price-within-bounds");
-        clipper.file("stopped", 2);
+        require(nxt < rmul(cur, tolerance[clip]), "ClipperMom/price-within-bounds");
+        ClipLike(clip).file("stopped", 2);
         emit SetBreaker(clip, 2);
     }
 }

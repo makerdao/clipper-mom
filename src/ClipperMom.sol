@@ -130,21 +130,13 @@ contract ClipperMom {
         The following implements a permissionless circuit breaker in case the price reported by an oracle
         for a particular collateral type has dropped more than a governance-defined % from 1 hour to the next.
 
-        SetPriceDropTolerance sets a % (a RAY number between 0 and 1) for a specific collateral type
-        It then gets the price of the ilk from the spotter and caches that price, the current time, and
-        the % tolerance.
-            
-
-        tripBreaker takes the address of the ilk's clipper as well as the ilk identifier.
-        it then gets the current and next price and checks:
-          - the next price < current price
-          - the currentPrice * (tolerance % * 100) is less than the currentPrice - next price
-            - i.e., the acceptable drop in price < the actual drop
-          - If the drop is unacceptable, it stops auctions for the current ilk and allows a later retry
+        The setPriceDropTolerance function sets that % (as a value between 0 and RAY) for a specific collateral type.
         
-          - Edge cases: 
-            - The clipper is for a different ilk than the ilk whose price we are breaking -> require the clipper's ilk == ilk
-    
+        tripBreaker takes the address of some ilk's Clipper.
+        It then gets the current and next price and checks whether the next price is less than the minimum
+        acceptable next price based on the tolerance. If the drop is unacceptable (larger than the tolerance,
+        it stops creation of new auctions and resets of current auctions for the Clipper's ilk. Currently, governance
+        must reset the breaker manually.
     */
     function tripBreaker(address clip) external {
         ClipLike clipper = ClipLike(clip);

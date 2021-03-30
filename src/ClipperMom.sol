@@ -140,7 +140,7 @@ contract ClipperMom {
         
         tripBreaker takes the address of some ilk's Clipper.
         It then gets the current and next price and checks whether the next price is less than the minimum
-        acceptable next price based on the tolerance. If the drop is unacceptable (larger than the tolerance,
+        acceptable next price based on the tolerance. If the next price is unacceptable (lower than the tolerance,
         it stops creation of new auctions and resets of current auctions for the Clipper's ilk. Currently, governance
         must reset the breaker manually.
     */

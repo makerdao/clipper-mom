@@ -128,9 +128,9 @@ contract ClipperMom {
 
     /**
         The following implements a permissionless circuit breaker in case the price reported by an oracle
-        for a particular collateral type has dropped more than a governance-defined % from 1 hour to the next.
+        for a particular collateral type will drop below than a governance-defined % from 1 hour to the next.
 
-        The setPriceDropTolerance function sets that % (as a value between 0 and RAY) for a specific collateral type.
+        The setPriceTolerance function sets that % (as a value between 0 and RAY) for a specific collateral type.
         
         tripBreaker takes the address of some ilk's Clipper.
         It then gets the current and next price and checks whether the next price is less than the minimum

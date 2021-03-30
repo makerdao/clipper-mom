@@ -29,13 +29,14 @@ interface AuthorityLike {
     function canCall(address src, address dst, bytes4 sig) external view returns (bool);
 }
 
-interface PipLike {
+interface OsmLike {
+    function hop() external view returns (uint16);
     function peek() external view returns (uint256, bool);
     function peep() external view returns (uint256, bool);
 }
 
 interface SpotterLike {
-    function ilks(bytes32) external view returns (PipLike, uint256);
+    function ilks(bytes32) external view returns (OsmLike, uint256);
 }
 
 contract ClipperMom {
@@ -93,11 +94,11 @@ contract ClipperMom {
     }
 
     function getPrices(address clip) internal view returns (uint256 cur, uint256 nxt) {
-        (PipLike pip, ) = spotter.ilks(ClipLike(clip).ilk());
+        (OsmLike osm, ) = spotter.ilks(ClipLike(clip).ilk());
         bool has;
-        (cur, has) = pip.peek();
+        (cur, has) = osm.peek();
         require(has, "ClipperMom/invalid-cur-price");
-        (nxt, has) = pip.peep();
+        (nxt, has) = osm.peep();
         require(has, "ClipperMom/invalid-nxt-price");
     }
 
@@ -121,9 +122,10 @@ contract ClipperMom {
     function setBreaker(address clip, uint256 level) external auth {
         require(level <= 3, "ClipperMom/wrong-level");
         ClipLike(clip).file("stopped", level);
+        (OsmLike osm, ) = spotter.ilks(ClipLike(clip).ilk());
         // If governance changes the status of the breaker we want to lock for one hour
         // the permissionless function so the osm can pull new nxt price to compare
-        locked[clip] = block.timestamp + 1 hours;
+        locked[clip] = block.timestamp + osm.hop();
         emit SetBreaker(clip, level);
     }
 

@@ -93,18 +93,20 @@ contract MockClipper {
 }
 
 contract MockSpotter {
-    address public pip;
+    address public osm;
 
-    constructor(address pip_) public {
-        pip = pip_;
+    constructor(address osm_) public {
+        osm = osm_;
     }
 
-    function ilks(bytes32) external view returns (address pip_, uint256) {
-        pip_ = pip;
+    function ilks(bytes32) external view returns (address osm_, uint256) {
+        osm_ = osm;
     }
 }
 
-contract MockPip {
+contract MockOsm {
+    uint16 public hop = 1 hours;
+
     struct Feed {
         uint128 val;
         uint128 has;
@@ -137,7 +139,7 @@ interface Hevm {
 }
 
 contract ClipperMomTest is DSTest {
-    MockPip pip;
+    MockOsm osm;
     MockSpotter spotter;
     ClipperMom mom;
     MomCaller caller;
@@ -156,8 +158,8 @@ contract ClipperMomTest is DSTest {
 
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
-        pip = new MockPip();
-        spotter = new MockSpotter(address(pip));
+        osm = new MockOsm();
+        spotter = new MockSpotter(address(osm));
         mom = new ClipperMom(address(spotter));
         caller = new MomCaller(mom);
         authority = new SimpleAuthority(address(caller));
@@ -243,8 +245,8 @@ contract ClipperMomTest is DSTest {
     function testTripBreaker() public {
         assertEq(clip.stopped(), 0);
         mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
@@ -254,8 +256,8 @@ contract ClipperMomTest is DSTest {
         clip.file("stopped", 1);
         assertEq(clip.stopped(), 1);
         mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
@@ -264,8 +266,8 @@ contract ClipperMomTest is DSTest {
     function testFailTripBreakerAlreadyStopped() public {
         clip.file("stopped", 2);
         mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
     }
@@ -273,38 +275,38 @@ contract ClipperMomTest is DSTest {
     function testFailTripBreakerAlreadyStopped2() public {
         clip.file("stopped", 3);
         mom.setPriceTolerance(address(clip), 60 * RAY / 100); // max 40% drop
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
     }
 
     function testFailTripBreakerWithinBounds() public {
         mom.setPriceTolerance(address(clip), 60 * RAY / 100);
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(60 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(60 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
     }
 
     function testTripBreakerLockedAndWait() public {
         mom.setPriceTolerance(address(clip), 60 * RAY / 100);
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
         mom.setBreaker(address(clip), 0);
         assertEq(clip.stopped(), 0);
-        hevm.warp(block.timestamp + 1 hours + 1);
+        hevm.warp(block.timestamp + osm.hop() + 1);
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
     }
 
     function testFailTripBreakerLocked() public {
         mom.setPriceTolerance(address(clip), 60 * RAY / 100);
-        pip.setCurPrice(100 * WAD, 1);
-        pip.setNxtPrice(59 * WAD, 1);
+        osm.setCurPrice(100 * WAD, 1);
+        osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
         mom.setBreaker(address(clip), 0);

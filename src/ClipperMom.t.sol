@@ -252,7 +252,7 @@ contract ClipperMomTest is DSTest {
 
     function testEmergencyBreakMulipleClipper() public {
         assertEq(clip.stopped(), 0);
-        mom.setPriceDropTolerance("ETH", 40 * RAY / 100); // 40% drop
+        mom.setPriceTolerance("ETH", 60 * RAY / 100); // 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 

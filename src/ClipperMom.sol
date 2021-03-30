@@ -40,9 +40,10 @@ interface SpotterLike {
 contract ClipperMom {
     address public owner;
     address public authority;
-    SpotterLike public immutable spotter;
     mapping (bytes32 => uint256) public locked; // timestamp when becomes unlocked (per ilk)
     mapping (bytes32 => uint256) public tolerance; // ilk -> ray
+
+    SpotterLike public immutable spotter;
 
     event SetOwner(address indexed oldOwner, address indexed newOwner);
     event SetAuthority(address indexed oldAuthority, address indexed newAuthority);
@@ -110,8 +111,8 @@ contract ClipperMom {
         authority = authority_;
     }
 
-    function setPriceDropTolerance(bytes32 ilk, uint256 value) external onlyOwner {
-        require(value <= 1 * RAY && value > 0, "ClipperMom/tolerance-out-of-bounds");
+    function setPriceTolerance(bytes32 ilk, uint256 value) external onlyOwner {
+        require(value <= 1 * RAY, "ClipperMom/tolerance-out-of-bounds");
         tolerance[ilk] = value;
     }
 
@@ -153,7 +154,7 @@ contract ClipperMom {
       
         (uint256 cur, uint256 nxt) = getPrices(ilk);
 
-        require(nxt < rmul(cur, sub(RAY, tolerance[ilk])), "ClipperMom/price-within-bounds");
+        require(nxt < rmul(cur, tolerance[ilk]), "ClipperMom/price-within-bounds");
         clipper.file("stopped", 2);
         emit SetBreaker(clip, 2);
     }

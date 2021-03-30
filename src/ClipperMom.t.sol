@@ -54,8 +54,8 @@ contract MomCaller {
         mom.setBreaker(clip_, level);
     }
 
-    function setPriceDropTolerance(bytes32 ilk_, uint256 tolerance) external {
-        mom.setPriceDropTolerance(ilk_, tolerance);
+    function setPriceTolerance(bytes32 ilk_, uint256 tolerance) external {
+        mom.setPriceTolerance(ilk_, tolerance);
     }
 }
 
@@ -231,18 +231,18 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailSetToleranceViaAuth() public {
-        caller.setPriceDropTolerance("ETH", 100);
+        caller.setPriceTolerance("ETH", 100);
     }
 
     function testSetToleranceViaOwner() public {
         assertEq(mom.tolerance("ETH"), 0);
-        mom.setPriceDropTolerance("ETH", 100);
+        mom.setPriceTolerance("ETH", 100);
         assertEq(mom.tolerance("ETH"), 100);
     }
 
     function testEmergencyBreak() public {
         assertEq(clip.stopped(), 0);
-        mom.setPriceDropTolerance("ETH", 40 * RAY / 100); // 40% drop
+        mom.setPriceTolerance("ETH", 60 * RAY / 100); // max 40% drop
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -251,7 +251,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailEmergencyBreakWithinBounds() public {
-        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        mom.setPriceTolerance("ETH", 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(60 * WAD, 1);
 
@@ -259,7 +259,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testEmergencyBreakLockedAndWait() public {
-        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        mom.setPriceTolerance("ETH", 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 
@@ -273,7 +273,7 @@ contract ClipperMomTest is DSTest {
     }
 
     function testFailEmergencyBreakLocked() public {
-        mom.setPriceDropTolerance("ETH", 40 * RAY / 100);
+        mom.setPriceTolerance("ETH", 60 * RAY / 100);
         pip.setCurPrice(100 * WAD, 1);
         pip.setNxtPrice(59 * WAD, 1);
 

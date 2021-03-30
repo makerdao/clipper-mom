@@ -22,6 +22,7 @@ pragma solidity >=0.6.12;
 interface ClipLike {
     function file(bytes32, uint256) external;
     function ilk() external view returns (bytes32);
+    function stopped() external view returns (uint256);
 }
 
 interface AuthorityLike {
@@ -140,6 +141,7 @@ contract ClipperMom {
     */
     function tripBreaker(address clip) external {
         ClipLike clipper = ClipLike(clip);
+        require(clipper.stopped() < 2, "ClipperMom/clipper-already-stopped");
         bytes32 ilk = clipper.ilk();
         require(tolerance[ilk] > 0, "ClipperMom/invalid-ilk-break");
         require(block.timestamp > locked[ilk], "ClipperMom/temporary-locked");

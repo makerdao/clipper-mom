@@ -123,7 +123,7 @@ contract ClipperMom {
 
     // Governance action without delay
     function setBreaker(address clip, uint256 level) external auth {
-        require(level <= 3, "ClipperMom/wrong-level");
+        require(level <= 3, "ClipperMom/nonexistent-level");
         ClipLike(clip).file("stopped", level);
         (OsmLike osm, ) = spotter.ilks(ClipLike(clip).ilk());
         // If governance changes the status of the breaker we want to lock for one hour

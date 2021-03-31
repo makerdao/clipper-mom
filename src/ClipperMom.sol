@@ -149,6 +149,7 @@ contract ClipperMom {
       
         (uint256 cur, uint256 nxt) = getPrices(clip);
 
+        // tolerance[clip] == 0 will always make the following require to revert
         require(nxt < rmul(cur, tolerance[clip]), "ClipperMom/price-within-bounds");
         ClipLike(clip).file("stopped", 2);
         emit SetBreaker(clip, 2);

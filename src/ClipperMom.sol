@@ -30,7 +30,6 @@ interface AuthorityLike {
 }
 
 interface OsmLike {
-    function hop() external view returns (uint16);
     function peek() external view returns (uint256, bool);
     function peep() external view returns (uint256, bool);
 }
@@ -122,13 +121,12 @@ contract ClipperMom {
     }
 
     // Governance action without delay
-    function setBreaker(address clip, uint256 level) external auth {
+    function setBreaker(address clip, uint256 level, uint256 delay) external auth {
         require(level <= 3, "ClipperMom/nonexistent-level");
         ClipLike(clip).file("stopped", level);
-        (OsmLike osm, ) = spotter.ilks(ClipLike(clip).ilk());
         // If governance changes the status of the breaker we want to lock for one hour
         // the permissionless function so the osm can pull new nxt price to compare
-        locked[clip] = block.timestamp + osm.hop();
+        locked[clip] = block.timestamp + delay;
         emit SetBreaker(clip, level);
     }
 

@@ -50,8 +50,8 @@ contract MomCaller {
         mom.setAuthority(newAuthority);
     }
 
-    function setBreaker(address clip_, uint256 level) external {
-        mom.setBreaker(clip_, level);
+    function setBreaker(address clip_, uint256 level, uint256 delay) external {
+        mom.setBreaker(clip_, level, delay);
     }
 
     function setPriceTolerance(address clip, uint256 value) external {
@@ -105,8 +105,6 @@ contract MockSpotter {
 }
 
 contract MockOsm {
-    uint16 public hop = 1 hours;
-
     struct Feed {
         uint128 val;
         uint128 has;
@@ -194,42 +192,42 @@ contract ClipperMomTest is DSTest {
 
     function testSetBreakerViaAuth() public {
         assertEq(clip.stopped(), 0);
-        caller.setBreaker(address(clip), 1);
+        caller.setBreaker(address(clip), 1, 0);
         assertEq(clip.stopped(), 1);
-        caller.setBreaker(address(clip), 2);
+        caller.setBreaker(address(clip), 2, 0);
         assertEq(clip.stopped(), 2);
-        caller.setBreaker(address(clip), 3);
+        caller.setBreaker(address(clip), 3, 0);
         assertEq(clip.stopped(), 3);
-        caller.setBreaker(address(clip), 0);
+        caller.setBreaker(address(clip), 0, 0);
         assertEq(clip.stopped(), 0);
     }
 
     function testSetBreakerViaOwner() public {
         mom.setAuthority(address(0));
-        mom.setBreaker(address(clip), 1);
+        mom.setBreaker(address(clip), 1, 0);
         assertEq(clip.stopped(), 1);
-        mom.setBreaker(address(clip), 2);
+        mom.setBreaker(address(clip), 2, 0);
         assertEq(clip.stopped(), 2);
-        mom.setBreaker(address(clip), 3);
+        mom.setBreaker(address(clip), 3, 0);
         assertEq(clip.stopped(), 3);
-        mom.setBreaker(address(clip), 0);
+        mom.setBreaker(address(clip), 0, 0);
         assertEq(clip.stopped(), 0);
     }
 
     function testFailSetBreakerNoAuthority() public {
         mom.setAuthority(address(0));
         assertTrue(mom.owner() != address(caller));
-        caller.setBreaker(address(clip), 1);
+        caller.setBreaker(address(clip), 1, 0);
     }
 
     function testFailSetBreakerUnauthorized() public {
         mom.setAuthority(address(new SimpleAuthority(address(this))));
         assertTrue(mom.owner() != address(caller));
-        caller.setBreaker(address(clip), 1);
+        caller.setBreaker(address(clip), 1, 0);
     }
 
     function testFailSetBreakerWrongLevel() public {
-        caller.setBreaker(address(clip), 4);
+        caller.setBreaker(address(clip), 4, 0);
     }
 
     function testFailSetToleranceViaAuth() public {
@@ -296,9 +294,10 @@ contract ClipperMomTest is DSTest {
 
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
-        mom.setBreaker(address(clip), 0);
+        uint256 delay = 3600;
+        mom.setBreaker(address(clip), 0, delay);
         assertEq(clip.stopped(), 0);
-        hevm.warp(block.timestamp + osm.hop() + 1);
+        hevm.warp(block.timestamp + delay + 1);
         anyone.tripBreaker(address(clip));
         assertEq(clip.stopped(), 2);
     }
@@ -309,7 +308,7 @@ contract ClipperMomTest is DSTest {
         osm.setNxtPrice(59 * WAD, 1);
 
         anyone.tripBreaker(address(clip));
-        mom.setBreaker(address(clip), 0);
+        mom.setBreaker(address(clip), 0, 3600);
         anyone.tripBreaker(address(clip));
     }
 }

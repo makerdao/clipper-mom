@@ -145,7 +145,6 @@ contract ClipperMom {
     */
     function tripBreaker(address clip) external {
         require(ClipLike(clip).stopped() < 2, "ClipperMom/clipper-already-stopped");
-        require(tolerance[clip] > 0, "ClipperMom/invalid-clipper-break");
         require(block.timestamp > locked[clip], "ClipperMom/temporary-locked");
       
         (uint256 cur, uint256 nxt) = getPrices(clip);

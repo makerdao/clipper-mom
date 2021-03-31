@@ -115,6 +115,7 @@ contract ClipperMom {
     // Set the price tolerance for a specific ilk.
     // The price tolerance is the minimum acceptable value a new price can have relative to the previous price
     // For instance, a tolerance of 0.6 means that a new price can't be lower than 60% of the previous price
+    // 0.6 * RAY = 600000000000000000000000000 => means acceptable drop from previous price is up to 40%
     function setPriceTolerance(address clip, uint256 value) external onlyOwner {
         require(value <= 1 * RAY, "ClipperMom/tolerance-out-of-bounds");
         tolerance[clip] = value;
